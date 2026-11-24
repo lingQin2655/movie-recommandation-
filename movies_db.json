@@ -1,0 +1,8 @@
+{
+    "Inception": {
+        "year": "2020",
+        "genre": "Sci-Fi",
+        "description": "A Science Fiction Movie",
+        "poster": "movie_posters\\Inception.jpg"
+    }
+}
