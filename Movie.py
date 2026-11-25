@@ -59,6 +59,37 @@ class Movie:
             self.save_users(default_users)
             return default_users
 
+    def validate_credentials(self, username, password, require_password=True):
+        """
+        Validates username and password rules:
+        - Username: must contain both letters (alphabet) and numbers (digits), no spaces.
+        - Password: 9 to 12 characters (more than 8, max 12), containing both letters and digits.
+        Returns (True, "") if valid, or (False, error_message) if invalid.
+        """
+        if not username:
+            return False, "Username cannot be empty."
+
+        if not username.isalnum():
+            return False, "Username can only contain letters and numbers (no spaces or symbols)."
+
+        if not (any(c.isalpha() for c in username) and any(c.isdigit() for c in username)):
+            return False, "Username must contain both alphabet letters and numbers (e.g., user123)."
+
+        if require_password or password:
+            if not password:
+                return False, "Password cannot be empty."
+
+            if not password.isalnum():
+                return False, "Password can only contain letters and numbers (no spaces or symbols)."
+
+            if not (9 <= len(password) <= 12):
+                return False, "Password must be more than 8 characters and at most 12 characters (9–12 chars)."
+
+            if not (any(c.isalpha() for c in password) and any(c.isdigit() for c in password)):
+                return False, "Password must contain both alphabet letters and digits (e.g., Pass12345)."
+
+        return True, ""
+    
     def save_users(self, users_data):
         """Saves the current user dictionary to the JSON file."""
         with open(self.users_file, "w", encoding="utf-8") as file:
@@ -267,11 +298,12 @@ class Movie:
 
     def register_user(self):
         """Validates input, registers user, and writes to file."""
-        username = self.new_username_entry.get().strip()
+        username = self.new_username_entry.get().strip().lower()
         password = self.new_password_entry.get().strip()
 
-        if not username or not password:
-            messagebox.showerror("Error", "All fields are required!")
+        is_valid, error_msg = self.validate_credentials(username, password, require_password=True)
+        if not is_valid:
+            messagebox.showerror("Validation Error", error_msg)
             return
 
         if username in self.users:
@@ -319,10 +351,10 @@ class Movie:
             logo_box = ctk.CTkFrame(header_frame, width=110, height=45, fg_color="#E5E7EB", corner_radius=8)
             logo_box.pack(side="left", padx=30)
             ctk.CTkLabel(logo_box, text="logo", font=("Segoe UI", 14, "bold"), text_color="#374151").place(relx=0.5, rely=0.5, anchor="center")
-
+ 
         search_entry = ctk.CTkEntry(
             header_frame, width=380, height=40,
-            placeholder_text="search movies...", corner_radius=8, font=("Segoe UI", 13)
+            placeholder_text="search movies or genre...", corner_radius=8, font=("Segoe UI", 13)
         )
         search_entry.pack(side="left", padx=60)
 
@@ -341,7 +373,7 @@ class Movie:
             text_color="#1F2937",
             hover_color="#E5E7EB", 
             corner_radius=8,
-            command=lambda: messagebox.showinfo("Profile", f"Logged in as: {self.current_username}\nRole: Admin")
+            command=lambda: self.show_admin_profile(username)
         )
         profile_icon_btn.pack(side="right", padx=5)
 
@@ -380,91 +412,128 @@ class Movie:
             text_color="#6E7781"
         ).place(relx=0.5, rely=0.62, anchor="center")
 
-        grid_label = ctk.CTkLabel(
-            scroll_content, 
-            text="Movie Catalog",
-            font=("Segoe UI", 16, "bold"), 
-            text_color="#1F2937"
-        )
-        grid_label.pack(anchor="w", padx=10, pady=(15, 5))
-
-        grid_frame = ctk.CTkFrame(scroll_content, fg_color="transparent")
-        grid_frame.pack(fill="x", padx=10, pady=5)
-
-        movie_list = list(self.movies.items())
         self.movie_poster_images = []
+        current_genre = ["all"] 
+        
+        def populate_grid(selected_genre="all"):
+            if selected_genre is not None:
+                current_genre[0] = selected_genre
 
-        if not movie_list:
-            ctk.CTkLabel(
-                grid_frame, text="No movies available. Add a new movie to get started!",
-                font=("Segoe UI", 13), text_color="#6B7280"
-            ).pack(pady=20)
-        else:
-            for row_idx in range((len(movie_list) + 2) // 3):
+            for widget in grid_frame.winfo_children():
+                widget.destroy()
+
+            query = search_entry.get().strip().lower()
+            active_genre = current_genre[0].lower()
+            all_movies = self._movies_as_list()
+
+            # 1. Filter by genre button selection
+            if active_genre != "all":
+                filtered_movies = [m for m in all_movies if m["genre"].lower() == active_genre]
+            else:
+                filtered_movies = all_movies
+
+            # 2. Filter by search query (matches movie title OR genre)
+            if query:
+                filtered_movies = [
+                    m for m in filtered_movies
+                    if query in m["title"].lower() or query in m["genre"].lower()
+                ]
+
+            # Update section title dynamically
+            if query and active_genre != "all":
+                grid_label.configure(text=f"Search Results for '{query}' in {active_genre.capitalize()}")
+            elif query:
+                grid_label.configure(text=f"Search Results for '{query}'")
+            elif active_genre != "all":
+                grid_label.configure(text=f"Popular Catalog — {active_genre.capitalize()} Movies")
+            else:
+                grid_label.configure(text="Popular Catalog")
+
+            if not filtered_movies:
+                msg = f"No movies found matching '{query}'." if query else f"No movies found for '{active_genre}' genre."
+                ctk.CTkLabel(
+                    grid_frame, text=msg,
+                    font=("Segoe UI", 13), text_color="#4B5563"
+                ).pack(pady=20)
+                return
+            
+            num_rows = (len(filtered_movies) + 2) // 3
+            for row_idx in range(num_rows):
                 row_box = ctk.CTkFrame(grid_frame, fg_color="transparent")
                 row_box.pack(fill="x", pady=10)
 
                 for col_idx in range(3):
                     item_index = row_idx * 3 + col_idx
-                    if item_index < len(movie_list):
-                        m_title, m_data = movie_list[item_index]
+                    if item_index < len(filtered_movies):
+                        movie = filtered_movies[item_index]
+                        m_title, m_info = movie["title"], movie["info"]
 
                         card_item = ctk.CTkFrame(
-                            row_box, 
-                            width=320, 
-                            height=495, #change height and width
-                            fg_color="#FFFFFF", 
-                            corner_radius=12,
-                            border_width=1, 
-                            border_color="#E5E7EB"
+                            row_box, width=320, height=495, fg_color="#FFFFFF", #change size
+                            corner_radius=12, border_width=1, border_color="#E5E7EB"
                         )
                         card_item.pack(side="left", padx=12, expand=True)
                         card_item.pack_propagate(False)
 
-                        poster_path = m_data.get("poster", "")
+                        poster_path = movie.get("poster", "")
                         if poster_path and os.path.exists(poster_path):
                             try:
                                 poster_image = Image.open(poster_path)
-                                poster_ctk_image = ctk.CTkImage(
-                                    light_image=poster_image, 
-                                    dark_image=poster_image, 
-                                    size=(270, 400) #change height and width
+                                poster_ctk_image = ctk.CTkImage( #change size
+                                    light_image=poster_image, dark_image=poster_image, size=(270, 400)
                                 )
                                 self.movie_poster_images.append(poster_ctk_image)
-                                ctk.CTkLabel(card_item, text="", 
-                                             image=poster_ctk_image
-                                             ).pack(pady=12)
+                                img_widget = ctk.CTkLabel(card_item, text="", image=poster_ctk_image)
+                                img_widget.pack(pady=12)
+                                clickable_widgets = (card_item, img_widget)
                             except Exception:
-                                img_box = ctk.CTkFrame(card_item, 
-                                                       width=110, 
-                                                       height=145, 
-                                                       fg_color="#E5E7EB", 
-                                                       corner_radius=8)
+                                img_box = ctk.CTkFrame(card_item, width=110, height=145, fg_color="#E5E7EB", corner_radius=8)
                                 img_box.pack(pady=12)
-                                ctk.CTkLabel(img_box, 
-                                             text="Poster unavailable", 
-                                             font=("Segoe UI", 13, "italic"), 
-                                             text_color="#6B7280"
-                                             ).place(relx=0.5, rely=0.5, anchor="center")
+                                img_label = ctk.CTkLabel(img_box, text="Poster unavailable", font=("Segoe UI", 13, "italic"), text_color="#6B7280")
+                                img_label.place(relx=0.5, rely=0.5, anchor="center")
+                                clickable_widgets = (card_item, img_box, img_label)
                         else:
-                            img_box = ctk.CTkFrame(card_item,
-                                                    width=110, 
-                                                    height=145, 
-                                                    fg_color="#E5E7EB", 
-                                                    corner_radius=8)
+                            img_box = ctk.CTkFrame(card_item, width=110, height=145, fg_color="#E5E7EB", corner_radius=8)
                             img_box.pack(pady=12)
-                            ctk.CTkLabel(img_box, text="movie image", font=("Segoe UI", 13, "italic"), text_color="#6B7280").place(relx=0.5, rely=0.5, anchor="center")
+                            img_label = ctk.CTkLabel(img_box, text="movie image", font=("Segoe UI", 13, "italic"), text_color="#6B7280")
+                            img_label.place(relx=0.5, rely=0.5, anchor="center")
+                            clickable_widgets = (card_item, img_box, img_label)
 
-                        ctk.CTkLabel(card_item, 
-                                     text=m_title, 
-                                     font=("Segoe UI", 13, "bold"), 
-                                     text_color="#111827"
-                                     ).pack(anchor="w",padx=20)
-                        m_info = f"{m_data.get('genre', 'N/A')} | {m_data.get('year', 'N/A')}"
-                        ctk.CTkLabel(card_item, 
-                                     text=m_info, 
-                                     font=("Segoe UI", 11), 
-                                     text_color="#6B7280").pack(anchor="w", padx=20)
+                        title_label = ctk.CTkLabel(card_item, text=m_title, font=("Segoe UI", 13, "bold"), text_color="#111827")
+                        title_label.pack(anchor="w", padx=20)
+
+                        info_label = ctk.CTkLabel(card_item, text=m_info, font=("Segoe UI", 11), text_color="#6B7280")
+                        info_label.pack(anchor="w", padx=20)
+
+                        for widget in (*clickable_widgets, title_label, info_label):
+                            widget.bind("<Button-1>", lambda e, mov=movie: self.show_movie_introduction_admin(mov, username))
+                            widget.configure(cursor="hand2")
+
+        # Trigger live search whenever user types
+        search_entry.bind("<KeyRelease>", lambda event: populate_grid())
+        genre_container = ctk.CTkFrame(scroll_content, fg_color="#89B5F8", height=60, corner_radius=10, border_width=1, border_color="#E5E7EB")
+        genre_container.pack(fill="x", padx=10, pady=15)
+        genre_container.pack_propagate(False)
+
+        ctk.CTkLabel(genre_container, text="movie genre", font=("Segoe UI", 13, "bold"), text_color="#333333").pack(side="left", padx=20)
+
+        genres = ["all", "romantic", "action", "comedy", "sci-fi", "horror", "drama"]
+        for g in genres:
+            g_btn = ctk.CTkButton(
+                genre_container, text=g, width=85, height=32, corner_radius=16,
+                fg_color="#759EF1", text_color="#374151", hover_color="#3E75E3",
+                font=("Segoe UI", 12), border_width=1, border_color="#D1D5DB",
+                command=lambda genre=g: populate_grid(genre)
+            )
+            g_btn.pack(side="left", padx=5)
+
+        grid_label = ctk.CTkLabel(scroll_content, text="Popular Catalog", font=("Segoe UI", 16, "bold"), text_color="#1F2937")
+        grid_label.pack(anchor="w", padx=10, pady=(10, 5))
+
+        grid_frame = ctk.CTkFrame(scroll_content, fg_color="transparent")
+        grid_frame.pack(fill="x", padx=10, pady=5)
+
+        populate_grid("all")
 
         button_frame = ctk.CTkFrame(scroll_content, fg_color="transparent")
         button_frame.pack(pady=20)
@@ -484,6 +553,80 @@ class Movie:
             hover_color="#1D4ED8",
             command=self.show_admin_movie_list
         ).pack(side="left", padx=15)
+
+    def show_movie_introduction_admin(self, movie_data, username):
+        """Displays full movie introduction page with rating slider and JSON persistence."""
+        self.clear_window()
+        self.root.title(f"{movie_data['title']} - Movie Introduction")
+
+        main_container = ctk.CTkFrame(self.root, fg_color="#E5E7EB")
+        main_container.pack(fill="both", expand=True)
+
+        header_frame = ctk.CTkFrame(main_container, height=80, fg_color="#89B5F8", corner_radius=0)
+        header_frame.pack(fill="x", side="top")
+        header_frame.pack_propagate(False)
+
+        back_btn = ctk.CTkButton(
+            header_frame, text="← Back to Main Page", width=160, height=38,
+            font=("Segoe UI", 13, "bold"), fg_color="#3E75E3", hover_color="#2563EB",
+            corner_radius=8, command=lambda: self.show_admin_dashboard(username)
+        )
+        back_btn.pack(side="left", padx=30)
+
+        ctk.CTkLabel(
+            header_frame, text=f"Movie Details: {movie_data['title']}",
+            font=("Segoe UI", 18, "bold"), text_color="#1F2937"
+        ).pack(side="left", padx=20)
+
+        intro_scroll = ctk.CTkScrollableFrame(main_container, fg_color="#C1D7F9", width=1140, height=730)
+        intro_scroll.pack(fill="both", expand=True, padx=20, pady=15)
+
+        detail_card = ctk.CTkFrame(intro_scroll, width=850, fg_color="#FFFFFF", corner_radius=15, border_width=1, border_color="#E5E7EB")
+        detail_card.pack(padx=20, pady=20, expand=True)
+
+        img_box = ctk.CTkFrame(detail_card, width=770, height=240, fg_color="#E5E7EB", corner_radius=10)
+        img_box.pack(pady=20)
+        img_box.pack_propagate(False)
+
+        poster_path = movie_data.get("poster", "")
+        if poster_path and os.path.exists(poster_path):
+            try:
+                poster_image = Image.open(poster_path)
+                self.detail_poster_img = ctk.CTkImage(light_image=poster_image, dark_image=poster_image, size=(150, 210))
+                ctk.CTkLabel(img_box, text="", image=self.detail_poster_img).place(relx=0.5, rely=0.5, anchor="center")
+            except Exception:
+                ctk.CTkLabel(img_box, text=f"[{movie_data['title']} Movie Image]", font=("Segoe UI", 15, "italic"), text_color="#6B7280").place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            ctk.CTkLabel(img_box, text=f"[{movie_data['title']} Movie Image]", font=("Segoe UI", 15, "italic"), text_color="#6B7280").place(relx=0.5, rely=0.5, anchor="center")
+
+        info_frame = ctk.CTkFrame(detail_card, fg_color="transparent")
+        info_frame.pack(fill="x", padx=40, pady=5)
+
+        title_row = ctk.CTkFrame(info_frame, fg_color="transparent")
+        title_row.pack(fill="x", pady=(0, 5))
+
+        ctk.CTkLabel(title_row, text=movie_data["title"], font=("Segoe UI", 24, "bold"), text_color="#111827").pack(side="left")
+
+        if not hasattr(self, "user_favorites"):
+            self.user_favorites = {}
+        if username not in self.user_favorites:
+            self.user_favorites[username] = set()
+
+        is_favorite = movie_data["title"] in self.user_favorites[username]
+
+        
+
+        ctk.CTkLabel(
+            info_frame,
+            text=f"Genre Type: {movie_data['genre'].capitalize()}   |   Release Year: {movie_data['year']}",
+            font=("Segoe UI", 13, "bold"), text_color="#4B5563"
+        ).pack(anchor="w", pady=(0, 10))
+
+
+        ctk.CTkLabel(info_frame, text="Description", font=("Segoe UI", 15, "bold"), text_color="#1F2937").pack(anchor="w", pady=(15, 5))
+        ctk.CTkLabel(info_frame, text=movie_data["description"], font=("Segoe UI", 13), text_color="#4B5563", wraplength=750, justify="left").pack(anchor="w")
+
+
 
     def show_add_movie_screen(self):
         self.clear_window()
@@ -737,6 +880,146 @@ class Movie:
             messagebox.showinfo("Deleted", f"Movie '{title}' has been deleted.")
             self.show_admin_movie_list()
 
+    def show_admin_profile(self,username):
+        self.clear_window()
+        self.root.title("Admin Profile - Movie Recommendation")
+
+        main_container = ctk.CTkFrame(self.root, fg_color="#E5E7EB")
+        main_container.pack(fill="both", expand=True)
+
+        header_frame = ctk.CTkFrame(main_container, height=80, fg_color="#89B5F8", corner_radius=0)
+        header_frame.pack(fill="x", side="top")
+        header_frame.pack_propagate(False)
+        ctk.CTkLabel(header_frame, text="Admin Profile", font=("Segoe UI", 20, "bold"), text_color="#1F2937").pack(side="left", padx=30)
+
+        content_area = ctk.CTkFrame(main_container, fg_color="#C1D7F9", corner_radius=12)
+        content_area.pack(fill="both", expand=True, padx=20, pady=15)
+
+        profile_card = ctk.CTkFrame(
+            content_area, width=480, height=340, fg_color="#FFFFFF",
+            corner_radius=15, border_width=1, border_color="#E5E7EB"
+        )
+        profile_card.place(relx=0.5, rely=0.5, anchor="center")
+        profile_card.pack_propagate(False)
+
+        ctk.CTkLabel(profile_card, text="👤", font=("Segoe UI", 54)).pack(pady=(30, 10))
+        ctk.CTkLabel(profile_card, text="Account Information", font=("Segoe UI", 18, "bold"), text_color="#1F2937").pack(pady=(0, 15))
+
+        info_box = ctk.CTkFrame(profile_card, fg_color="#F3F4F6", corner_radius=8, width=360, height=50)
+        info_box.pack(pady=5)
+        info_box.pack_propagate(False)
+        ctk.CTkLabel(info_box, text=f"Username:  {username}", font=("Segoe UI", 14, "bold"), text_color="#374151").place(relx=0.5, rely=0.5, anchor="center")
+
+        btn_frame = ctk.CTkFrame(profile_card, fg_color="transparent")
+        btn_frame.pack(side="bottom", pady=30)
+
+        back_btn = ctk.CTkButton(
+            btn_frame, text="Back to Main Page", width=160, height=40,
+            font=("Segoe UI", 13, "bold"), fg_color="#6B7280", hover_color="#4B5563",
+            corner_radius=8, command=lambda: self.show_admin_dashboard(username)
+        )
+        back_btn.pack(side="left", padx=10)
+
+        edit_btn = ctk.CTkButton(
+            btn_frame, text="Edit Profile", width=160, height=40,
+            font=("Segoe UI", 13, "bold"), fg_color="#3E75E3", hover_color="#2563EB",
+            corner_radius=8, command=lambda: self.show_admin_edit_profile(username)
+        )
+        edit_btn.pack(side="left", padx=10)
+
+    def show_admin_edit_profile(self, username):
+        self.clear_window()
+        self.root.title("Edit Profile - Movie Recommendation")
+
+        main_container = ctk.CTkFrame(self.root, fg_color="#E5E7EB")
+        main_container.pack(fill="both", expand=True)
+
+        header_frame = ctk.CTkFrame(main_container, height=80, fg_color="#89B5F8", corner_radius=0)
+        header_frame.pack(fill="x", side="top")
+        header_frame.pack_propagate(False)
+        ctk.CTkLabel(header_frame, text="Edit Profile", font=("Segoe UI", 20, "bold"), text_color="#1F2937").pack(side="left", padx=30)
+
+        content_area = ctk.CTkFrame(main_container, fg_color="#C1D7F9", corner_radius=12)
+        content_area.pack(fill="both", expand=True, padx=20, pady=15)
+
+        edit_card = ctk.CTkFrame(
+            content_area, width=500, height=460, fg_color="#FFFFFF",
+            corner_radius=15, border_width=1, border_color="#E5E7EB"
+        )
+        edit_card.place(relx=0.5, rely=0.5, anchor="center")
+        edit_card.pack_propagate(False)
+
+        ctk.CTkLabel(edit_card, text="Update Account Details", font=("Segoe UI", 18, "bold"), text_color="#1F2937").pack(pady=(25, 15))
+
+        ctk.CTkLabel(edit_card, text="Username:", font=("Segoe UI", 13, "bold"), text_color="#374151").pack(anchor="w", padx=60)
+        username_entry = ctk.CTkEntry(edit_card, width=380, height=38, font=("Segoe UI", 13), corner_radius=8)
+        username_entry.insert(0, username)
+        username_entry.pack(pady=(5, 15))
+
+        ctk.CTkLabel(edit_card, text="New Password (leave blank to keep current):", font=("Segoe UI", 13, "bold"), text_color="#374151").pack(anchor="w", padx=60)
+        new_pass_entry = ctk.CTkEntry(edit_card, width=380, height=38, show="*", placeholder_text="Enter new password", font=("Segoe UI", 13), corner_radius=8)
+        new_pass_entry.pack(pady=(5, 15))
+
+        ctk.CTkLabel(edit_card, text="Confirm New Password:", font=("Segoe UI", 13, "bold"), text_color="#374151").pack(anchor="w", padx=60)
+        confirm_pass_entry = ctk.CTkEntry(edit_card, width=380, height=38, show="*", placeholder_text="Confirm new password", font=("Segoe UI", 13), corner_radius=8)
+        confirm_pass_entry.pack(pady=(5, 10))
+
+        status_label = ctk.CTkLabel(edit_card, text="", font=("Segoe UI", 12, "bold"), text_color="#DC2626")
+        status_label.pack(pady=5)
+
+        def save_changes():
+                new_user = username_entry.get().strip().lower()
+                new_pw = new_pass_entry.get().strip()
+                confirm_pw = confirm_pass_entry.get().strip()
+    
+                if not new_user:
+                    status_label.configure(text="Username cannot be empty.", text_color="#DC2626")
+                    return
+    
+                if new_pw or confirm_pw:
+                    if new_pw != confirm_pw:
+                        status_label.configure(text="Passwords do not match!", text_color="#DC2626")
+                        return
+    
+                is_valid, error_msg = self.validate_credentials(new_user, new_pw, require_password=False)
+                if not is_valid:
+                    status_label.configure(text=error_msg, text_color="#DC2626")
+                    return
+    
+                if new_user != username:
+                    if new_user in self.users:
+                        status_label.configure(text="Username already taken!", text_color="#DC2626")
+                        return
+                    user_record = self.users.pop(username, {"password": new_pw, "role": "admin"})
+                    if new_pw:
+                        user_record["password"] = new_pw
+                    self.users[new_user] = user_record
+                    if hasattr(self, "user_favorites") and username in self.user_favorites:
+                        self.user_favorites[new_user] = self.user_favorites.pop(username)
+                elif new_pw and username in self.users:
+                    self.users[username]["password"] = new_pw
+    
+                self.save_users(self.users)
+                self.show_admin_profile(new_user)
+    
+        btn_frame = ctk.CTkFrame(edit_card, fg_color="transparent")
+        btn_frame.pack(side="bottom", pady=25)
+    
+        cancel_btn = ctk.CTkButton(
+                btn_frame, text="Cancel", width=160, height=40,
+                font=("Segoe UI", 13, "bold"), fg_color="#6B7280", hover_color="#4B5563",
+                corner_radius=8, command=lambda: self.show_admin_profile(username)
+            )
+        cancel_btn.pack(side="left", padx=10)
+    
+        save_btn = ctk.CTkButton(
+                btn_frame, text="Save Changes", width=160, height=40,
+                font=("Segoe UI", 13, "bold"), fg_color="#16A34A", hover_color="#15803D",
+                corner_radius=8, command=save_changes
+            )
+        save_btn.pack(side="left", padx=10)
+        
+
     # --- CUSTOMER / USER PORTAL --- #ohyeah
     def show_customer_dashboard(self, username):
         """Displays the Customer Portal backed by movies_db.json with genre filtering."""
@@ -805,26 +1088,50 @@ class Movie:
         ctk.CTkLabel(banner_card, text="Explore today's hand-picked top trending movie feature!", font=("Segoe UI", 13), text_color="#6E7781").place(relx=0.5, rely=0.62, anchor="center")
 
         self.movie_poster_images = []
+        current_genre = ["all"] 
 
         def populate_grid(selected_genre="all"):
+            if selected_genre is not None:
+                current_genre[0] = selected_genre
+
             for widget in grid_frame.winfo_children():
                 widget.destroy()
 
+            query = search_entry.get().strip().lower()
+            active_genre = current_genre[0].lower()
             all_movies = self._movies_as_list()
-            if selected_genre == "all":
-                filtered_movies = all_movies
-                grid_label.configure(text="Popular Catalog")
+
+            # 1. Filter by genre button selection
+            if active_genre != "all":
+                filtered_movies = [m for m in all_movies if m["genre"].lower() == active_genre]
             else:
-                filtered_movies = [m for m in all_movies if m["genre"].lower() == selected_genre.lower()]
-                grid_label.configure(text=f"Popular Catalog — {selected_genre.capitalize()} Movies")
+                filtered_movies = all_movies
+
+            # 2. Filter by search query (matches movie title OR genre)
+            if query:
+                filtered_movies = [
+                    m for m in filtered_movies
+                    if query in m["title"].lower() or query in m["genre"].lower()
+                ]
+
+            # Update section title dynamically
+            if query and active_genre != "all":
+                grid_label.configure(text=f"Search Results for '{query}' in {active_genre.capitalize()}")
+            elif query:
+                grid_label.configure(text=f"Search Results for '{query}'")
+            elif active_genre != "all":
+                grid_label.configure(text=f"Popular Catalog — {active_genre.capitalize()} Movies")
+            else:
+                grid_label.configure(text="Popular Catalog")
 
             if not filtered_movies:
+                msg = f"No movies found matching '{query}'." if query else f"No movies found for '{active_genre}' genre."
                 ctk.CTkLabel(
-                    grid_frame, text=f"No movies found for '{selected_genre}' genre.",
+                    grid_frame, text=msg,
                     font=("Segoe UI", 13), text_color="#4B5563"
                 ).pack(pady=20)
                 return
-
+            
             num_rows = (len(filtered_movies) + 2) // 3
             for row_idx in range(num_rows):
                 row_box = ctk.CTkFrame(grid_frame, fg_color="transparent")
@@ -874,9 +1181,11 @@ class Movie:
                         info_label.pack(anchor="w", padx=20)
 
                         for widget in (*clickable_widgets, title_label, info_label):
-                            widget.bind("<Button-1>", lambda e, mov=movie: self.show_movie_introduction(mov, username))
+                            widget.bind("<Button-1>", lambda e, mov=movie: self.show_movie_introduction_customer(mov, username))
                             widget.configure(cursor="hand2")
 
+        # Trigger live search whenever user types
+        search_entry.bind("<KeyRelease>", lambda event: populate_grid())
         genre_container = ctk.CTkFrame(scroll_content, fg_color="#89B5F8", height=60, corner_radius=10, border_width=1, border_color="#E5E7EB")
         genre_container.pack(fill="x", padx=10, pady=15)
         genre_container.pack_propagate(False)
@@ -901,7 +1210,7 @@ class Movie:
 
         populate_grid("all")
 
-    def show_movie_introduction(self, movie_data, username):
+    def show_movie_introduction_customer(self, movie_data, username):
         """Displays full movie introduction page with rating slider and JSON persistence."""
         self.clear_window()
         self.root.title(f"{movie_data['title']} - Movie Introduction")
@@ -1138,9 +1447,9 @@ class Movie:
         status_label.pack(pady=5)
 
         def save_changes():
-            new_user = username_entry.get().strip()
-            new_pw = new_pass_entry.get()
-            confirm_pw = confirm_pass_entry.get()
+            new_user = username_entry.get().strip().lower()
+            new_pw = new_pass_entry.get().strip()
+            confirm_pw = confirm_pass_entry.get().strip()
 
             if not new_user:
                 status_label.configure(text="Username cannot be empty.", text_color="#DC2626")
@@ -1150,6 +1459,11 @@ class Movie:
                 if new_pw != confirm_pw:
                     status_label.configure(text="Passwords do not match!", text_color="#DC2626")
                     return
+
+            is_valid, error_msg = self.validate_credentials(new_user, new_pw, require_password=False)
+            if not is_valid:
+                status_label.configure(text=error_msg, text_color="#DC2626")
+                return
 
             if new_user != username:
                 if new_user in self.users:
@@ -1270,7 +1584,7 @@ class Movie:
                     info_label.pack(anchor="w", padx=20)
 
                     for widget in (card_item, img_box, img_label, title_label, info_label):
-                        widget.bind("<Button-1>", lambda e, mov=movie: self.show_movie_introduction(mov, username))
+                        widget.bind("<Button-1>", lambda e, mov=movie: self.show_movie_introduction_customer(mov, username))
                         widget.configure(cursor="hand2")
 
 

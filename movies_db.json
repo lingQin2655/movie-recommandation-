@@ -4,15 +4,15 @@
         "genre": "Sci-Fi",
         "description": "A Science Fiction Movie",
         "poster": "movie_posters\\Inception.jpg",
-        "rating":8.8,
-        "total_votes": 1250
+        "rating": 8.8,
+        "total_votes": 1251
     },
     "The Dark Night": {
         "year": "2008",
         "genre": "Action",
         "description": "An action movie",
         "poster": "movie_posters\\The Dark Night.jpg",
-        "rating":9.8,
+        "rating": 9.8,
         "total_votes": 2500
     }
 }
