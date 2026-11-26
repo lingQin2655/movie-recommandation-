@@ -39,11 +39,12 @@ class Movie:
         self.root.mainloop()
 
     def load_users(self):
+
         """Loads users from a JSON file and ensures default admins always exist."""
         default_users = {
-            "simjy": {"password": "JySim1192", "role": "admin"},
-            "limxq": {"password": "Limxq0089", "role": "admin"},
-        }
+            "simjy123": {"password": "JySim1192", "role": "admin"},
+            "limxq345": {"password": "Limxq0089", "role": "admin"},
+            }
 
         if os.path.exists(self.users_file):
             try:
@@ -60,12 +61,6 @@ class Movie:
             return default_users
 
     def validate_credentials(self, username, password, require_password=True):
-        """
-        Validates username and password rules:
-        - Username: must contain both letters (alphabet) and numbers (digits), no spaces.
-        - Password: 9 to 12 characters (more than 8, max 12), containing both letters and digits.
-        Returns (True, "") if valid, or (False, error_message) if invalid.
-        """
         if not username:
             return False, "Username cannot be empty."
 
@@ -105,47 +100,7 @@ class Movie:
                 "poster": "",
                 "rating": 8.8,
                 "total_votes": 1250,
-            },
-            "The Dark Knight": {
-                "year": "2008",
-                "genre": "action",
-                "description": "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological tests.",
-                "poster": "",
-                "rating": 9.0,
-                "total_votes": 2100,
-            },
-            "Interstellar": {
-                "year": "2014",
-                "genre": "sci-fi",
-                "description": "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
-                "poster": "",
-                "rating": 8.7,
-                "total_votes": 980,
-            },
-            "Titanic": {
-                "year": "1997",
-                "genre": "romantic",
-                "description": "A seventeen-year-old aristocrat falls in love with a kind, poor artist aboard the luxurious, ill-fated R.M.S. Titanic.",
-                "poster": "",
-                "rating": 7.9,
-                "total_votes": 1400,
-            },
-            "The Notebook": {
-                "year": "2004",
-                "genre": "romantic",
-                "description": "A poor yet passionate young man falls in love with a rich young woman, giving her a sense of freedom.",
-                "poster": "",
-                "rating": 7.8,
-                "total_votes": 750,
-            },
-            "Avengers": {
-                "year": "2012",
-                "genre": "action",
-                "description": "Earth's mightiest heroes must come together and learn to fight as a team against Loki.",
-                "poster": "",
-                "rating": 8.0,
-                "total_votes": 1600,
-            },
+            }
         }
 
         if os.path.exists(self.movies_file):
@@ -614,14 +569,22 @@ class Movie:
 
         is_favorite = movie_data["title"] in self.user_favorites[username]
 
-        
-
+    
         ctk.CTkLabel(
             info_frame,
             text=f"Genre Type: {movie_data['genre'].capitalize()}   |   Release Year: {movie_data['year']}",
             font=("Segoe UI", 13, "bold"), text_color="#4B5563"
         ).pack(anchor="w", pady=(0, 10))
 
+        rating_box = ctk.CTkFrame(info_frame, fg_color="#FEF3C7", corner_radius=6)
+        rating_box.pack(anchor="w", pady=5)
+    
+        rating_display_lbl = ctk.CTkLabel(
+                rating_box,
+                text=f"Rating: {movie_data['rating']} / 10 ⭐ ({movie_data['total_votes']} votes)",
+                font=("Segoe UI", 13, "bold"), text_color="#D97706"
+            )
+        rating_display_lbl.pack(padx=12, pady=6)
 
         ctk.CTkLabel(info_frame, text="Description", font=("Segoe UI", 15, "bold"), text_color="#1F2937").pack(anchor="w", pady=(15, 5))
         ctk.CTkLabel(info_frame, text=movie_data["description"], font=("Segoe UI", 13), text_color="#4B5563", wraplength=750, justify="left").pack(anchor="w")

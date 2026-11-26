@@ -14,5 +14,38 @@
         "poster": "movie_posters\\The Dark Night.jpg",
         "rating": 9.8,
         "total_votes": 2500
+    },
+    "Dear you": {
+        "year": "2026",
+        "genre": "Romantic",
+        "description": "Dear You is a 2026 Chinese family drama film directed and co-written by Lan Hongchun. It stars a largely non-professional cast featuring Li Sitong, Wang Yantong, Wu Shaoqing, Zheng Runqi and Wang Xiaohui, alongside Thai actress Usha Seamkhum.",
+        "poster": "movie_posters\\dear_you.jpeg",
+        "rating": 9.9,
+        "total_votes": 2543
+    },
+    "Obsession": {
+        "year": "2026",
+        "genre": "Horror",
+        "description": "A Science Fiction Movie",
+        "poster": "movie_posters\\obsession.jpeg",
+        "rating": 8.3,
+        "total_votes": 2592
+    },
+    "Spider-Man: Brand New Day": {
+        "year": "2026",
+        "genre": "Sci-Fi",
+        "description": "Spider-Man: Brand New Day is a 2026 American superhero film based on the Marvel Comics character Spider-Man. Produced by Columbia Pictures, Marvel Studios, and Pascal Pictures, and distributed by Sony Pictures Releasing, it is the 38th film in the Marvel Cinematic Universe (MCU) and the fourth film in the MCU Spider-Man film series following Spider-Man: No Way Home (2021). The film was directed by Destin Daniel Cretton, written by Chris McKenna and Erik Sommers, and stars Tom Holland as Peter Parker / Spider-Man alongside Zendaya, Sadie Sink, Jacob Batalon, Jon Bernthal, Florence Pugh, Tramell Tillman, Marisa Tomei, and Mark Ruffalo. In the film, Parker is on his own and dedicated to protecting New York City as the hero Spider-Man. His personal struggles and overworking cause his superpowers to evolve while he faces a new telepathic threat.",
+        "poster": "movie_posters\\spider_man.jpeg",
+        "rating": 7.9,
+        "total_votes": 3176
+    },
+    "Moana": {
+        "year": "2016",
+        "genre": "Sci-Fi",
+        "description": "Moana[b] is a 2016 American animated musical adventure film produced by Walt Disney Animation Studios and directed by John Musker and Ron Clements from a screenplay by Jared Bush. The film stars Dwayne Johnson and Auliʻi Cravalho in her feature film debut. Its songs were written by Lin-Manuel Miranda, Opetaia Foaʻi, and Mark Mancina, who also composed the score. Set in ancient Polynesia, the film follows Moana (Cravalho), the strong-willed daughter of a village chief, who is chosen by the ocean to restore a mystical relic to the goddess Te Fiti. When a blight threatens her island, she sets sail in search of Maui (Johnson), a legendary demigod, in hopes of saving her people. The screenplay draws inspiration from Polynesian mythology.",
+        "poster": "movie_posters\\moana.jpeg",
+        "rating": 8.4,
+        "total_votes": 3170
     }
+
 }
